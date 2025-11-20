@@ -1,9 +1,6 @@
 """Database models package."""
 
-from sqlalchemy.orm import DeclarativeBase
+from app.models.base import Base
+from app.models.note import Note
 
-
-class Base(DeclarativeBase):
-    """Base class for all database models."""
-
-    pass
+__all__ = ["Base", "Note"]
