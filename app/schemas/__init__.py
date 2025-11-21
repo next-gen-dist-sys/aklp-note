@@ -1,5 +1,11 @@
 """Pydantic schemas package."""
 
+from app.schemas.note import (
+    NoteCreate,
+    NoteListResponse,
+    NoteResponse,
+    NoteUpdate,
+)
 from app.schemas.responses import (
     BaseResponse,
     ErrorResponse,
@@ -8,6 +14,12 @@ from app.schemas.responses import (
 )
 
 __all__ = [
+    # Note schemas
+    "NoteCreate",
+    "NoteUpdate",
+    "NoteResponse",
+    "NoteListResponse",
+    # Response schemas
     "BaseResponse",
     "SuccessResponse",
     "ErrorResponse",

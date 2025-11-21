@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Application
-    APP_NAME: str = "service-template"
+    APP_NAME: str = "aklp-note"
     APP_VERSION: str = "0.1.0"
     DEBUG: bool = False
 
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/aklp_db"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@postgres:5432/aklp_note"
 
     # Logging
     LOG_LEVEL: str = "INFO"
