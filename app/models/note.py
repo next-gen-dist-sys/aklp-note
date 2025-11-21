@@ -1,4 +1,4 @@
-"""Note model for file storage."""
+"""Note model for note management."""
 
 from datetime import datetime
 from uuid import UUID
@@ -16,7 +16,7 @@ class Note(Base):
     Attributes:
         id: Unique identifier (UUID)
         session_id: Optional session identifier for AI-generated notes
-        filename: Name of the note
+        title: Title of the note
         content: Content of the note
         created_at: Timestamp when the note was created
         updated_at: Timestamp when the note was last updated
@@ -34,9 +34,9 @@ class Note(Base):
         index=True,
         comment="Optional session ID for AI-generated notes",
     )
-    filename: Mapped[str] = mapped_column(
+    title: Mapped[str] = mapped_column(
         index=True,
-        comment="Name of the Note",
+        comment="Title of the Note",
     )
     content: Mapped[str] = mapped_column(
         Text,
@@ -58,4 +58,4 @@ class Note(Base):
 
     def __repr__(self) -> str:
         """String representation of Note."""
-        return f"<Note(id={self.id}, filename={self.filename}, session_id={self.session_id})>"
+        return f"<Note(id={self.id}, title={self.title}, session_id={self.session_id})>"
