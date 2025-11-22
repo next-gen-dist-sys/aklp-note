@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     # Server
     HOST: str = "0.0.0.0"
-    PORT: int = 8000
+    PORT: int = 8002
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@postgres:5432/aklp_note"
