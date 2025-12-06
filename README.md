@@ -1,288 +1,167 @@
-# Service Template
+# AKLP Note Service
 
-FastAPI service template for AKLP (AI-powered Kubernetes Learning Platform).
+AI 학습 세션의 대화 내용, 학습 노트, 요약 정보를 저장하고 관리하는 서비스입니다.
 
-## Features
+## 개요
 
-- **FastAPI** with async SQLAlchemy 2.0
-- **Middleware**: Request ID tracking, logging, error handling
-- **Standardized responses** with success/error schemas
-- **Database migrations** with Alembic
-- **Code quality**: ruff (linting + formatting) + mypy (type checking)
-- **Pre-commit hooks** for automated code quality checks
-- **Async HTTP client** wrapper with httpx
-- **Structured logging** with JSON format support
-- **Health check** endpoint with database status
+| 항목         | 값                                       |
+| ------------ | ---------------------------------------- |
+| 포트         | `8002`                                   |
+| Base URL     | `/api/v1/notes`                          |
+| API 문서     | [Swagger UI](http://localhost:8002/docs) |
+| 데이터베이스 | `aklp_note`                              |
 
-## Directory Structure
+## API 엔드포인트
 
-```text
-service-template/
-├── app/
-│   ├── __init__.py
-│   ├── main.py                 # FastAPI application entry point
-│   ├── api/
-│   │   └── v1/                 # API version 1
-│   │       ├── __init__.py
-│   │       └── endpoints/      # API endpoint modules
-│   ├── core/
-│   │   ├── config.py           # Environment variables and settings
-│   │   ├── deps.py             # Dependency injection (DB session, etc.)
-│   │   ├── logging.py          # Logging configuration
-│   │   └── exceptions.py       # Custom exceptions
-│   ├── middleware/
-│   │   ├── logging.py          # Request/response logging
-│   │   ├── error_handler.py   # Global exception handlers
-│   │   └── request_id.py       # Request ID tracking
-│   ├── models/                 # SQLAlchemy models
-│   ├── schemas/
-│   │   └── responses.py        # Common response schemas
-│   ├── services/               # Business logic
-│   └── utils/
-│       └── http_client.py      # httpx wrapper
-├── tests/
-├── alembic/                    # Database migrations
-├── k8s/                        # Kubernetes manifests
-├── .pre-commit-config.yaml
-├── .gitignore
-├── pyproject.toml              # uv-based dependencies
-├── Dockerfile
-├── alembic.ini
-└── README.md
+### 1. 노트 생성 (`POST /api/v1/notes`)
+
+```json
+{
+  "title": "Kubernetes Pod 기초 학습",
+  "content": "Pod는 Kubernetes에서 가장 작은 배포 단위입니다...",
+  "session_id": "550e8400-e29b-41d4-a716-446655440001"
+}
 ```
 
-## Getting Started
+### 2. 노트 목록 조회 (`GET /api/v1/notes`)
 
-### Prerequisites
+| 파라미터     | 타입 | 설명                  |
+| ------------ | ---- | --------------------- |
+| `page`       | int  | 페이지 번호 (기본: 1) |
+| `session_id` | UUID | 세션별 필터링         |
 
-- Python 3.12+
-- [uv](https://github.com/astral-sh/uv) package manager
-- PostgreSQL (for production/testing)
-- Git (for version control)
+### 3. 노트 상세 조회 (`GET /api/v1/notes/{note_id}`)
 
-### Installation
+### 4. 노트 수정 (`PUT /api/v1/notes/{note_id}`)
 
-1. Install dependencies with uv:
+```json
+{
+  "title": "수정된 제목",
+  "content": "수정된 내용"
+}
+```
+
+### 5. 노트 삭제 (`DELETE /api/v1/notes/{note_id}`)
+
+---
+
+## Agent/CLI 통합 가이드
+
+### session_id 활용
+
+모든 노트는 `session_id`로 AI 세션과 연결됩니다. Agent는 세션 시작 시 UUID를 생성하고, 해당 세션의 모든 노트에 동일한 `session_id`를 사용해야 합니다.
+
+```python
+import uuid
+session_id = uuid.uuid4()  # 세션 시작 시 생성
+```
+
+### Agent 사용 시나리오
+
+#### 1. 학습 세션 요약 저장
+
+사용자와의 대화가 끝나면 학습 내용을 요약하여 저장:
 
 ```bash
-# Sync dependencies from uv.lock (recommended for team projects)
+curl -X POST http://localhost:8002/api/v1/notes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "2025-12-06 Kubernetes 학습 요약",
+    "content": "## 오늘 배운 내용\n- Pod 생성 방법\n- kubectl 기본 명령어\n\n## 다음 학습 주제\n- Service와 네트워킹",
+    "session_id": "550e8400-e29b-41d4-a716-446655440001"
+  }'
+```
+
+#### 2. 명령어 실행 기록 저장
+
+사용자가 실행한 kubectl 명령어와 결과 저장:
+
+````bash
+curl -X POST http://localhost:8002/api/v1/notes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "kubectl 명령어 실행 기록",
+    "content": "```bash\n$ kubectl get pods\nNAME         READY   STATUS    RESTARTS   AGE\nnginx-pod    1/1     Running   0          5m\n```",
+    "session_id": "550e8400-e29b-41d4-a716-446655440001"
+  }'
+````
+
+#### 3. 세션별 노트 조회
+
+특정 세션의 모든 노트 조회:
+
+```bash
+curl "http://localhost:8002/api/v1/notes?session_id=550e8400-e29b-41d4-a716-446655440001"
+```
+
+#### 4. 학습 진행 상황 업데이트
+
+기존 노트에 새로운 학습 내용 추가:
+
+```bash
+curl -X PUT http://localhost:8002/api/v1/notes/{note_id} \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "## 추가 학습 내용\n- Deployment 롤링 업데이트\n- ReplicaSet 동작 원리"
+  }'
+```
+
+### 권장 노트 타입
+
+| 타입        | 제목 예시                    | 용도                   |
+| ----------- | ---------------------------- | ---------------------- |
+| 세션 요약   | `YYYY-MM-DD 학습 요약`       | 세션 종료 시 자동 생성 |
+| 명령어 기록 | `kubectl 명령어 실행 기록`   | 실행한 명령어 로깅     |
+| 개념 정리   | `Pod vs Deployment 차이점`   | 학습한 개념 정리       |
+| 트러블슈팅  | `CrashLoopBackOff 해결 과정` | 문제 해결 과정 기록    |
+| 실습 결과   | `Service 생성 실습`          | 실습 과제 결과 저장    |
+
+---
+
+## 응답 형식
+
+### 단일 노트 응답
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "session_id": "550e8400-e29b-41d4-a716-446655440001",
+  "title": "Kubernetes Pod 기초 학습",
+  "content": "Pod는 Kubernetes에서 가장 작은 배포 단위입니다...",
+  "created_at": "2025-12-06T10:00:00Z",
+  "updated_at": "2025-12-06T10:00:00Z"
+}
+```
+
+### 목록 응답
+
+```json
+{
+  "items": [...],
+  "total": 25,
+  "page": 1,
+  "limit": 10,
+  "total_pages": 3,
+  "has_next": true,
+  "has_prev": false
+}
+```
+
+---
+
+## 로컬 개발
+
+```bash
+# 의존성 설치
 uv sync --all-extras
 
-# Or install from pyproject.toml
-uv pip install -r pyproject.toml
-```
+# 개발 서버 실행
+uv run uvicorn app.main:app --reload --port 8002
 
-2. Install pre-commit hooks:
-
-```bash
-# Install both pre-commit and commit-msg hooks
-uv run pre-commit install
-uv run pre-commit install --hook-type commit-msg
-```
-
-### Configuration
-
-Create a `.env` file in the project root:
-
-```env
-# Application
-APP_NAME=service-template
-DEBUG=true
-
-# Database
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/aklp_db
-
-# Logging
-LOG_LEVEL=INFO
-LOG_FORMAT=json
-```
-
-### Database Migrations
-
-Create a new migration:
-
-```bash
-uv run alembic revision --autogenerate -m "description"
-```
-
-Apply migrations:
-
-```bash
+# 마이그레이션 실행
 uv run alembic upgrade head
 ```
 
-Rollback migration:
-
-```bash
-uv run alembic downgrade -1
-```
-
-### Running the Application
-
-Development mode (with auto-reload using uv):
-
-```bash
-# Recommended: use uv run
-uv run uvicorn app.main:app --reload
-
-# Alternative: activate venv and run directly
-source .venv/bin/activate
-uvicorn app.main:app --reload
-
-# Or use the main entry point
-uv run python app/main.py
-```
-
-The API will be available at:
-
-- **API**: http://localhost:8000
-- **Docs**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **Health**: http://localhost:8000/health
-
-### Code Quality
-
-Run linting and formatting:
-
-```bash
-# With uv run (recommended)
-uv run ruff check --fix .
-uv run ruff format .
-
-# Or after activating venv
-ruff check --fix .
-ruff format .
-```
-
-Run type checking:
-
-```bash
-uv run mypy app
-```
-
-Update lock file after changing dependencies:
-
-```bash
-uv lock
-```
-
-Pre-commit will automatically run these checks before each commit.
-
-## Git Workflow
-
-### Conventional Commits
-
-This project follows [Conventional Commits](https://www.conventionalcommits.org/) specification.
-
-Commit message format:
-
-```
-<type>(<scope>): <subject>
-```
-
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
-
-Examples:
-
-```bash
-feat(api): add user authentication endpoint
-fix(middleware): resolve request ID propagation issue
-docs: update installation instructions
-```
-
-### Using Commitizen (Recommended)
-
-For interactive commit creation:
-
-```bash
-# Instead of 'git commit'
-uv run cz commit
-
-# Or shorter
-uv run cz c
-```
-
-This will guide you through creating a properly formatted commit message.
-
-For more details, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Docker
-
-Build image:
-
-```bash
-docker build -t service-template:latest .
-```
-
-Run container:
-
-```bash
-docker run -p 8000:8000 \
-  -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@host.docker.internal:5432/aklp_db \
-  service-template:latest
-```
-
-## API Structure
-
-### Response Format
-
-All API responses follow a standardized format:
-
-**Success Response:**
-
-```json
-{
-  "success": true,
-  "message": "Operation successful",
-  "data": { ... },
-  "request_id": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-**Error Response:**
-
-```json
-{
-  "success": false,
-  "message": "Error message",
-  "error_code": "ErrorType",
-  "details": { ... },
-  "request_id": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-### Adding New Endpoints
-
-1. Create endpoint file in `app/api/v1/endpoints/`:
-
-```python
-from fastapi import APIRouter
-
-router = APIRouter()
-
-@router.get("/")
-async def list_items():
-    return {"items": []}
-```
-
-2. Register router in `app/api/v1/__init__.py`:
-
-```python
-from app.api.v1.endpoints import items
-
-api_router.include_router(items.router, prefix="/items", tags=["items"])
-```
-
-## Kubernetes Deployment
-
-Kubernetes manifests are located in the `k8s/` directory.
-
-Deploy to Kubernetes:
-
-```bash
-kubectl apply -f k8s/
-```
-
-## License
+## 라이선스
 
 MIT
